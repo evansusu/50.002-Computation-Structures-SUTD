@@ -1,0 +1,29 @@
+module laneconvert (
+    input lanein[16],
+    output laneout[24]
+  ) {
+  
+  
+  convertsingleled c1;
+  convertsingleled c2;
+  convertsingleled c3;
+  convertsingleled c4;
+  convertsingleled c5;
+  convertsingleled c6;
+  convertsingleled c7;
+  convertsingleled c8;
+  
+  always {
+  c1.in = lanein[1:0];
+  c2.in = lanein[3:2];
+  c3.in = lanein[5:4];
+  c4.in = lanein[7:6];
+  c5.in = lanein[9:8];
+  c6.in = lanein[11:10];
+  c7.in = lanein[13:12];
+  c8.in = lanein[15:14];  
+  
+  laneout = ~(c{c8.out,c7.out,c6.out,c5.out,c4.out,c3.out,c2.out,c1.out});
+    
+  }
+}

@@ -1,0 +1,20 @@
+module convertsingleled (
+    input in[2],
+    output out[3]
+  ) {
+
+  always {
+    case(in){
+      b00: //no colour
+      out = b000;
+      b01: //red
+      out = b001;
+      b10: //blue
+      out = b100;
+      b11: //green
+      out = b010;
+      default:
+      out = b000;
+      }
+  }
+}

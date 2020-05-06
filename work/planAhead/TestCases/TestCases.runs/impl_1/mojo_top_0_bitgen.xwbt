@@ -1,0 +1,8 @@
+INTSTYLE=pa
+INFILE=C:\Users\65842\Documents\mojo\modular\work\planAhead\TestCases\TestCases.runs\impl_1\mojo_top_0_routed.ncd
+OUTFILE=C:\Users\65842\Documents\mojo\modular\work\planAhead\TestCases\TestCases.runs\impl_1\mojo_top_0.bit
+FAMILY=Spartan6
+PART=xc6slx9-2tqg144
+WORKINGDIR=C:\Users\65842\Documents\mojo\modular\work\planAhead\TestCases\TestCases.runs\impl_1
+LICENSE=WebPack
+USER_INFO=211835791_0_0_039

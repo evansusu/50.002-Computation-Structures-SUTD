@@ -1,0 +1,145 @@
+module cyclefsm (
+    input clk,  // clock
+    input rst,  // reset
+    input button,
+    input btn,
+    input score[16],
+    output alufn[6],
+    output cyclestate, //game over or not
+    output pnum[16], //random number
+    output we[5],
+    output asel[2],
+    output bsel[2],
+    input lanelasttwo[2], //last tile of lane
+    input alu[16]
+    
+    
+  ) {
+  
+  .clk(clk) {
+    
+    dff seed[32];
+    
+  }
+  fsm cycle(.clk(clk)) = {IDLE, SHIFTLANE, ADDSCORE, COMPSCORE, COMPTRI, GAMEOVER};
+  
+  pn_gen p1(.clk(clk),.rst(rst));
+  stateCounter sc(.clk(clk),.rst(rst),.score(score));
+  
+  always {
+  
+    p1.next = 0;
+    p1.seed = seed.q;
+    
+    cyclestate = 0;
+    alufn = 6b0;
+    
+    asel = 0;
+    bsel = 00;
+    
+    we = 5b0;
+    
+    case(cycle.q){
+    
+      cycle.IDLE:
+        
+        
+        cyclestate = 0;
+        alufn = 6b0;
+        
+        asel = 0;
+        bsel = 2b0;
+        
+        we = b00011;       
+                              
+        if (btn){
+        p1.next = 1;
+        cycle.d = cycle.SHIFTLANE;
+        }
+        
+        
+      cycle.SHIFTLANE:
+        
+        seed.d = seed.q + 1;
+                   
+        alufn = b100010;
+        asel = 0;
+        bsel = b10;
+        cyclestate = 0;
+                        
+        we = b00100;        
+                
+        p1.next = 0;
+        cycle.d = cycle.ADDSCORE; 
+      
+      cycle.ADDSCORE:
+        
+       
+        alufn = b000000;
+        asel = 0;
+        bsel = b00;
+        cyclestate = 0;
+          
+        we = b01000;
+        
+        cycle.d = cycle.COMPSCORE;
+        
+                 
+              
+      cycle.COMPSCORE:
+                   
+        alufn = b110111; //CMPLE
+        asel = 1;
+        bsel = 0;
+        cyclestate = 0;
+        if(alu==0){
+        we = b10000;
+        }
+        else{
+        we = 5b0;
+          }
+        
+                       
+        if(sc.inc_state == 1){         
+        cycle.d = cycle.COMPTRI; }
+          
+      cycle.COMPTRI:
+        
+           
+        alufn = b110011;
+        asel = 2;
+        bsel = 1;
+        cyclestate = 0;
+        we=5b0;
+                 
+        
+        if(sc.inc_state == 1){ 
+        if(alu!=1 && lanelasttwo!=0){
+         cycle.d = cycle.GAMEOVER;
+         }
+          else{
+        p1.next = 1;
+        cycle.d = cycle.SHIFTLANE; }
+            }
+          
+      cycle.GAMEOVER:
+        cyclestate = 1;
+        alufn = 6b0;
+        
+        asel = 2b0;
+        bsel = 2b0;
+        
+        we = 5b1;
+               
+          
+        if(button && sc.inc_state == 1){
+          cycle.d = cycle.IDLE;
+          }          
+        
+      
+      
+    } // end of cycle fsm block
+    
+    pnum = p1.num[15:0];
+  }
+}

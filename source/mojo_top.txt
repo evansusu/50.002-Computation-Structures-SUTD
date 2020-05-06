@@ -1,0 +1,671 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,      // AVR RX buffer full
+    output io_led [3][8],   // LEDs on IO Shield
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5],    // 5 buttons on IO Shield
+    input io_dip [3][8])    // DIP switches on IO Shield
+  
+  {
+  
+  sig rst;                  // reset signal // do we do the sigs here? or do we put as input/ output? 
+  //sig alufn[8];
+  //sig a[16];
+  //sig b[16];
+  //sig alu[16];
+  
+  alu xalu;
+
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    
+    edge_detector edge_detector (#RISE(1), #FALL(0));
+    
+    .rst(rst) {
+      multi_seven_seg seg;
+      multi_dec_ctr dec_ctr;
+      counter ctr (#SIZE(1), #DIV(24));
+    }
+  }
+  
+  
+  
+  fsm state(.clk(clk)) = {IDLE, TESTADD1,TESTADD2,  //1, 2, 3 
+                                TESTSUB1, TESTSUB2, TESTSUB3, // 4, 5
+                                TESTMUL1, TESTMUL2,// 6, 7
+                                TESTDIV1, TESTDIV2,// 8, 9
+                                TESTAND1, // 10
+                                TESTOR1,  // 11
+                                TESTXOR1,  // 12
+                                TESTSHL1,  // 13
+                                TESTSHR1,  // 14
+                                TESTSRA1,  // 15
+                                TESTCMPEQ1, TESTCMPEQ3, // 16, 17
+                                TESTCMPLT1, TESTCMPLT2, // 18, 19
+                                TESTCMPLE3,  // 20
+                                TESTROTSHI1, //21
+                                FAIL, SUCCESS};
+    
+  stateCounter sc(.clk(clk),.rst(rst));
+  
+  always {
+  
+    xalu.a = 16x{0};
+    xalu.b = 16x{0};
+    xalu.alufn = 6x{0};
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+    led = 8h00;             // HOW TO CONNECT BUTTONS TO LED 
+    spi_miso = bz;          // not using SPI
+    spi_channel = bzzzz;    // not using flags
+    avr_rx = bz;            // not using serial port
+    edge_detector.in = ctr.value;
+    dec_ctr.inc = edge_detector.out;
+    
+    // NEW, default the segments to display zeroes.
+    seg.values = {4h0, 4h0, 4h0, 4h0};
+    
+    io_seg = ~seg.seg;    // turn LEDs off
+    io_sel = ~seg.sel;          // connect digit select to the driver 
+    io_led = io_dip;           // connect dip switches to LED 
+    
+    //use testcases() to determine if state.q is not 0
+    //if != 0, all states will be evaluated 
+    
+    case(state.q){
+      
+      //default state is IDLE 
+      //center button pressed -- automatic testing begins, starting at TEST1
+      
+      //IDLE
+      state.IDLE:
+        if (io_button[1]){
+          state.d = state.TESTADD1;
+        }
+      
+      // ============ TESTING FOR POSITIVE CASES =============
+        
+      // we have 3 different test case value sets, indicated by the last number of each state. 
+        
+      // TEST CASE 1: a = 0010101101111110 (11134), b = 1100110001110000 (-13200) 
+        
+      // TEST CASE 2: a = 1001001111101001 (37865), b = 1010101000010110 (-21994) 
+        
+      // TEST CASE 3: a = 0101010110010110 (21920), a = b
+       
+      
+      //======================================================== 
+        
+
+        
+      //ADDITION OPERATION 
+      state.TESTADD1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b000000;
+        
+        //leftmost LEDs show which test case is currently active -- do we need this? 
+        io_led[2][7] = 1; 
+        
+        //segLEDs show the testcase name 
+        seg.values = {4h0, 4h0, 4h0, 4h1}; //0001
+        
+        io_led[0] = xalu.alu[7:0];
+        io_led[1] = xalu.alu[15:8];
+        io_led[2][0] = xalu.n;
+        io_led[2][1] = xalu.v;
+        io_led[2][2] = xalu.z; 
+       
+        //check if correct outputs of full adder fed to FPGA 
+        //if correct, proceed onto next test only on counter tick   
+        if (xalu.alu == b1010001100110110 && sc.inc_state == 1/*&& xalu.z == 0 && xalu.v == 0 && xalu.n == 1 */  ){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTADD2;
+        }
+        
+        //if inputs not correct, then wait for clock tick, change state to FAIL 
+        
+        else if (xalu.alu != b1111011111101110 && xalu.z != 0 && xalu.v != 0 && xalu.n != 1 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        //if RESET button pressed, then go back to IDLE 
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+       
+      state.TESTADD2:
+        xalu.a = b1001001111101001;
+        xalu.b = b1010101000010110;
+        xalu.alufn = b000000;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h2}; // 000
+       
+        if (xalu.alu == b0011110111111111 && xalu.z == 0 && xalu.v == 1 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTSUB1;
+        }
+        
+        
+        else if (xalu.alu != b0011110111111111 && xalu.z != 0 && xalu.v != 1 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+               
+      //SUBTRACTION OPERATION 
+      state.TESTSUB1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b000001;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h3}; 
+          
+        if (xalu.alu == b0101111100001110 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTSUB2;
+        }
+        
+        
+        else if (xalu.alu != b0101111100001110 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+      
+      state.TESTSUB2:
+        xalu.a = b1001001111101001;
+        xalu.b = b1010101000010110;
+        xalu.alufn = b000001;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h4}; 
+       
+  
+        if (xalu.alu == b1110100111010011 && xalu.z == 0 && xalu.v == 0 && xalu.n == 1 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTSUB3;
+        }
+        
+        
+        else if (xalu.alu != b1110100111010011 && xalu.z != 0 && xalu.v != 0 && xalu.n != 1 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+      
+      state.TESTSUB3:
+        xalu.a = b0101010110010110;
+        xalu.b = b0101010110010110;
+        xalu.alufn = b000001;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h5}; 
+ 
+        if (xalu.alu == b0000000000000000 && xalu.z == 1 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTMUL1;
+        }
+        
+        
+        else if (xalu.alu != b0000000000000000 && xalu.z != 1 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+      //MULTIPLICATION OPERATION 
+        
+      state.TESTMUL1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b000010;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h6}; 
+       
+
+        if (xalu.alu == b0110111100100000 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTMUL2;
+        }
+        
+        
+        else if (xalu.alu != b0110111100100000 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+            
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+        state.TESTMUL2:
+        xalu.a = b0000000000000101 /* what's inside */;
+        xalu.b = b0000000000000011/* what's inside */;
+        xalu.alufn = b000010;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h6}; 
+       
+
+        if (xalu.alu ==  b0000000000001111  /* what's inside */   && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTMUL2;
+        }
+        
+        
+        else if (xalu.alu !=  b0000000000001111   /* what's inside */  && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+            
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+  
+
+        
+      //DIVISON OPERATION 
+      
+      state.TESTDIV1: 
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b000011;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h8}; 
+       
+  
+        if (xalu.alu == b1111111111111111 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTDIV2;
+        }
+            
+        else if (xalu.alu != b1111111111111111 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+      state.TESTDIV2:
+        xalu.a = b0000000000001111; // 15
+        xalu.b = b0000000000000011; // 3. Ans is 5. 
+        xalu.alufn = b000011;
+        
+        seg.values = {4h0, 4h0, 4h0, 4h9}; 
+     
+        if (xalu.alu == b0000000000000101 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTAND1;
+        }
+                
+        else if (xalu.alu != b0000000000000101 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+                
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+      // AND OPERATION 
+        
+      state.TESTAND1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b011000;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h0}; 
+       
+
+        if (xalu.alu == b0000100001110000 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTOR1;
+        }
+               
+        else if (xalu.alu != b0000100001110000 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+      
+      // OR OPERATION 
+      state.TESTOR1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000; 
+        xalu.alufn = b011110;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h1}; 
+       
+ 
+        if (xalu.alu == b1110111101111110 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTXOR1;
+        }
+        
+        else if (xalu.alu != b1110111101111110 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+                
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+      ///XOR OPERATION 
+      state.TESTXOR1:  
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b010110;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h2};
+     
+        if (xalu.alu == b1110011100001110 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTSHL1;
+        }
+        
+        else if (xalu.alu != b1110011100001110 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+      // SHL OPERATION 
+      state.TESTSHL1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000; 
+        xalu.alufn = b100000;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h3}; 
+       
+ 
+        if (xalu.alu == b0110111111000000 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTSHR1;
+        }
+        
+        else if (xalu.alu != b0110111111000000 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+      
+      // SHR OPERATION 
+        
+      state.TESTSHR1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000; 
+        xalu.alufn = b100001;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h4}; 
+       
+ 
+        if (xalu.alu == b0000000101011011 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTSRA1;
+        }
+         
+        
+        else if (xalu.alu != b0000000101011011 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }
+        
+      // SRA OPERATION 
+      state.TESTSRA1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000; 
+        xalu.alufn = b100011;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h5}; 
+       
+
+        if (xalu.alu == b1111111001100011 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTCMPEQ1;
+        }
+          
+        else if (xalu.alu != b1111111001100011 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+          
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }  
+      
+        
+      //CMPEQ OPERATION 
+        
+      state.TESTCMPEQ1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000; 
+        xalu.alufn = b110011;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h6}; 
+       
+  
+        if (xalu.alu == b0000000000000000 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTCMPEQ3;
+        }
+        
+        
+        else if (xalu.alu != b0000000000000000 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }        
+      
+      state.TESTCMPEQ3:
+        xalu.a = b0101010110010110;
+        xalu.b = b0101010110010110;
+        xalu.alufn = b110011;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h7}; 
+       
+        if (xalu.alu == b0000000000000001 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTCMPLT1;
+        }
+        
+        else if (xalu.alu != b0000000000000001 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }  
+        
+        
+      //CMPLT OPERATION 
+        
+      state.TESTCMPLT1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b110101;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h8}; 
+       
+        if (xalu.alu == b0000000000000000 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTCMPLT2;
+        }
+        
+        else if (xalu.alu != b0000000000000000 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }  
+      
+      
+      state.TESTCMPLT2:
+        xalu.a = b1001001111101001;
+        xalu.b = b1010101000010110;
+        xalu.alufn = b110101;
+        
+        seg.values = {4h0, 4h0, 4h1, 4h9}; 
+       
+        if (xalu.alu == b0000000000000001 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTCMPLE3;
+        }
+        
+        else if (xalu.alu != b0000000000000001 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }  
+        
+        
+      //CMPLE OPERATION 
+        
+      state.TESTCMPLE3:
+        xalu.a = b0101010110010110;
+        xalu.b = b0101010110010110; 
+        xalu.alufn = b110111;
+        
+        seg.values = {4h0, 4h0, 4h2, 4h0}; 
+       
+        if (xalu.alu == b0000000000000001 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.TESTROTSHI1;
+        }
+        
+        else if (xalu.alu != b0000000000000001 && xalu.z != 0 && xalu.v != 0 && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        }  
+      
+        
+      //ROTATIONAL SHIFT OPERATION 
+      state.TESTROTSHI1:
+        xalu.a = b0010101101111110;
+        xalu.b = b1100110001110000;
+        xalu.alufn = b100010;
+        
+        seg.values = {4h0, 4h0, 4h2, 4h1}; 
+       
+        if (xalu.alu == b1111000101011011 && xalu.z == 0 && xalu.v == 0 && xalu.n == 0 && sc.inc_state == 1){
+          io_led[0] = xalu.alu[7:0];
+          io_led[1] = xalu.alu[15:8];
+          state.d = state.SUCCESS;
+        }
+        
+        else if (xalu.alu != b1111000101011011 && xalu.z != 0 && xalu.v != 0  && xalu.n != 0 && sc.inc_state == 1){
+          state.d = state.FAIL;
+        }
+        
+        if (rst_n == 0){
+          state.d = state.IDLE;
+        } 
+      
+      
+        
+      // ========== FAIL AND SUCCESS STATES ========== 
+        
+      // The state fail indicates that a wrong sum or cout has been
+      // detected.      
+      state.FAIL:
+        
+        // On a counter tick, display the letters 'FAIL',
+        // and blink all the LED arrays.
+        
+        if (sc.inc_state == 1) {
+          seg.values = {4ha,4hb,4hc,4hd};
+          io_led = 3x{{8hff}};
+        }
+        
+        seg.values = {4ha,4hb,4hc,4hd};
+        
+        // Allow the RESET button to be pressed setting the
+        // state back to IDLE.
+        
+        if (rst_n == 0) {
+          state.d = state.IDLE;
+        }
+      
+      // SUCCESS: when all 8 tests have been passed -- all alu, z v n have been verified as correct
+        
+      state.SUCCESS:
+      
+        // On counter tick, display "SUCC", blink all LED arrays
+   
+        
+        if (sc.inc_state == 1) {
+          seg.values = {4h5,4he,4hf,4hf};
+          io_led = 3x{{8hff}};
+        }
+        
+        seg.values = {4h5,4he,4hf,4hf};
+        
+        if (rst_n == 0) {
+          state.d = state.IDLE;
+        }
+  } // end of state(case.q)
+  } // end of always block
+  } // end of module block

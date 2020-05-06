@@ -1,0 +1,182 @@
+module mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,      // AVR RX buffer full
+    output io_led [3][8],   // LEDs on IO Shield 
+    output ioseg [8],      // 7-segment LEDs on IO Shield/ SCORE
+    output iosel [4],      // Digit select on IO Shield
+    //input io_button [5],    // 5 buttons on IO Shield
+    //input io_dip [3][8],    // DIP switches on IO Shield
+    input button,
+    output rgb[9],
+    
+    output iohiseg [8], //HISCORE
+    output iohisel [4]
+    )
+  
+  {
+  
+  sig rst;                  // reset signal // do we do the sigs here? or do we put as input/ output? 
+  sig btn;
+  //sig alufn[8];
+  sig a[16];
+  sig b[16];
+  //sig alu[16];
+  
+  alu xalu;
+
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+    dff lanebits[16];
+    dff scorereg[16];
+    dff hiscorereg[16];
+    dff tribits[16];
+    
+    edge_detector edge_detector (#RISE(1), #FALL(0));
+    
+    
+    .rst(rst) {
+      multi_seven_seg seg;
+      multi_seven_seg hiscoreseg;
+      multi_dec_ctr dec_ctr;
+      counter ctr (#SIZE(1), #DIV(24));
+    }
+  }
+  
+  
+  
+  button_conditioner b_cond(.clk(clk),.in(button));
+  laneconvert xlc; 
+  scoretoseg s1;
+  scoretoseg his1;
+  
+  trianglefsm trianglefsm1(.clk(clk));
+  cyclefsm cyclefsm1(.clk(clk),.rst(rst),.button(button),.score(scorereg.q),.lanelasttwo(lanebits.q[1:0]));
+  
+  always {
+  
+    
+  
+    xalu.a = 16x{0};
+    xalu.b = 16x{0};
+    xalu.alufn = 6x{0};
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+    led = 8h00;             // HOW TO CONNECT BUTTONS TO LED 
+    spi_miso = bz;          // not using SPI
+    spi_channel = bzzzz;    // not using flags
+    avr_rx = bz;            // not using serial port
+    edge_detector.in = ctr.value;
+    dec_ctr.inc = edge_detector.out;
+    
+    // NEW, default the segments to display zeroes.
+    seg.values = {4h0, 4h0, 4h0, 4h0};
+    
+    ioseg = ~seg.seg;    // turn LEDs off
+    iosel = seg.sel;          // connect digit select to the driver 
+    io_led = 3x{{8b11111111}};
+    
+    hiscoreseg.values = {4h0, 4h0, 4h0, 4h0};
+    iohiseg = ~hiscoreseg.seg;
+    iohisel = hiscoreseg.sel;
+    
+    edge_detector.in = b_cond.out;
+    btn = edge_detector.out;
+    
+    trianglefsm1.btn = btn;
+    cyclefsm1.btn = btn;
+    cyclefsm1.alu = xalu.alu;
+    
+    
+    rgb = 9x{b1};
+    xlc.lanein = 16b0;
+    
+    s1.score = 16b0;
+    his1.score = 16b0;
+    
+    //cyclefsm
+    
+    xalu.alufn = cyclefsm1.alufn;
+    case(cyclefsm1.asel){ //choose a input for alu
+      0:
+      a = lanebits.q;
+      1:
+      a = scorereg.q;
+      2:
+      a = c{14b0, lanebits.q[1:0]};
+      default:
+      a = 16b0;
+    }
+    case(cyclefsm1.bsel){ //choose b input for alu
+      0:
+      b = hiscorereg.q;
+      1:
+      b = tribits.q;
+      2:
+      b = cyclefsm1.pnum;
+      default:
+      b = 16b0;
+      }
+    
+    
+    xalu.a = a;
+    xalu.b = b;
+    
+    if(cyclefsm1.we[0]==b1){
+      //IDLE state, input 16b0 into lanebits register
+      lanebits.d = 16b0;
+      
+      }
+    if(cyclefsm1.we[1]==b1){
+    //IDLE state, input 16b0 into score register
+      scorereg.d = 16b0;
+    }
+    if(cyclefsm1.we[2]==b1){
+    //input alu into lanebits register
+      lanebits.d = xalu.alu;
+    }
+    if(cyclefsm1.we[3]==b1){
+    //ADDSCORE state, add 1 to scorereg
+      scorereg.d=scorereg.q+1;
+      }
+    if(cyclefsm1.we[4]==b1){
+    //replace hiscore with score if WE[4] is 1
+      hiscorereg.d = scorereg.q;
+      }
+    
+       
+    
+    xlc.lanein = lanebits.q; //lane converter
+    io_led[0] = xlc.laneout[7:0];
+    io_led[1] = xlc.laneout[15:8];
+    io_led[2] = xlc.laneout[23:16];
+    
+    
+    s1.score = scorereg.q;
+    seg.values = s1.values;
+    
+    his1.score = hiscorereg.q;
+    hiscoreseg.values = his1.values;
+    
+    
+    //using trianglefsm
+    trianglefsm1.cyclestate = cyclefsm1.cyclestate;
+    tribits.d = trianglefsm1.tribits;
+    rgb = trianglefsm1.rgb;
+
+    
+    
+  } // end of always block
+  } // end of module block

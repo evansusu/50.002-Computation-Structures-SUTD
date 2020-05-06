@@ -1,0 +1,22 @@
+module boole (
+    input alufn[6],
+    input a[16],
+    input b[16],
+    output bool[16]
+  ) {
+
+  always {
+    case(alufn[3:0]){
+      b1000: //AND
+      bool = a & b;
+      b1110: //OR
+      bool = a | b;
+      b0110: //XOR
+      bool = a ^ b;
+      b1010: //"A"
+      bool = a;
+      default:
+      bool = 16b0;
+      }
+  }
+}

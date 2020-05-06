@@ -1,0 +1,77 @@
+module alu_mojo_top (
+    input clk,              // 50MHz clock
+    input rst_n,            // reset button (active low)
+    output led [8],         // 8 user controllable LEDs
+    input cclk,             // configuration clock, AVR ready when high
+    output spi_miso,        // AVR SPI MISO
+    input spi_ss,           // AVR SPI Slave Select
+    input spi_mosi,         // AVR SPI MOSI
+    input spi_sck,          // AVR SPI Clock
+    output spi_channel [4], // AVR general purpose pins (used by default to select ADC channel)
+    input avr_tx,           // AVR TX (FPGA RX)
+    output avr_rx,          // AVR RX (FPGA TX)
+    input avr_rx_busy,       // AVR RX buffer full
+   
+    output io_led[3][8],      //19 LEDs to represent outputs
+    input io_dip [3][8],     //switches to get user input
+    output io_seg [8],      // 7-segment LEDs on IO Shield
+    output io_sel [4],      // Digit select on IO Shield
+    input io_button [5]    // 5 buttons on IO Shield
+     
+    
+  ) {  
+  
+  sig rst;                  // reset signal
+  sig alufn[8];
+  sig a[16];
+  sig b[16];
+  sig alu[16];  
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    reset_conditioner reset_cond;
+  }
+  
+  alu alu1;
+  
+  
+  always {
+    reset_cond.in = ~rst_n; // input raw inverted reset signal
+    rst = reset_cond.out;   // conditioned reset
+    
+    led = 8h00;             // turn LEDs off
+    
+    spi_miso = bz;          // not using SPI
+    spi_channel = bzzzz;    // not using flags
+    avr_rx = bz;            // not using serial port
+    
+    io_seg = 8hFF;
+    io_sel = 4hF;
+    
+    
+    a = c{8b0, io_dip[0]}; //right side represents 8bits of a
+    b = c{8b0, io_dip[1]}; //middle side represents 8bits of b
+    alufn = io_dip[2]; //left side represents 8bits of alufn (take only last 6bits)
+    
+    alu1.alufn = alufn[5:0];
+    alu1.a = a;
+    alu1.b = b;
+    
+        
+    alu = alu1.alu;
+    
+    
+    io_led[0] = alu[7:0]; //rightmost 16 LEDs represent output alu
+    io_led[1] = alu[15:8];
+    
+    io_led[2][0] = alu1.z; //17th LED represents z
+    io_led[2][1] = alu1.v; //18th LED represents v
+    io_led[2][2] = alu1.n; //19th LED represents n
+    io_led[2][7:3] = 5b0;
+    
+    
+    
+    
+  }
+}

@@ -1,0 +1,84 @@
+module trianglefsm (
+    input clk,  // clock
+    input btn,
+    output rgb[9],
+    output tribits[16],
+    input cyclestate[3] //0 for IDLE, 5 for game over and others for in game
+  ) {
+  
+  
+  .clk(clk) {
+    // The reset conditioner is used to synchronize the reset signal to the FPGA
+    // clock. This ensures the entire FPGA comes out of reset at the same time.
+    
+    
+    
+    
+  }
+  fsm state(.clk(clk)) = {IDLE, RED ,BLUE, GREEN, GAMEOVER};
+
+  always {
+  rgb = 9x{b1};
+  tribits = 16b0;
+
+    
+    case(state.q){
+      
+      //IDLE
+      state.IDLE:
+        tribits = 16b0;
+        
+        rgb = 9x{b1};
+        if (btn){
+        state.d = state.RED;
+        }
+      
+
+      state.RED:
+        rgb = b110101011;
+        tribits = 16b01;
+        
+        
+        if(cyclestate == 1){
+          state.d = state.GAMEOVER;
+          } 
+        if (btn){ state.d = state.BLUE; }
+               
+       
+      state.BLUE:
+        rgb = b011110101;
+        tribits = 16b10;
+        
+        
+        if(cyclestate == 1){
+        state.d = state.GAMEOVER;
+        }
+
+        if (btn){ state.d = state.GREEN; }
+                       
+
+      state.GREEN:
+        rgb = b101011110;
+        tribits = 16b11;
+        
+                 
+        if(cyclestate == 1){
+          state.d = state.GAMEOVER;
+          }
+
+        if (btn){ state.d = state.RED; }
+           
+        
+        
+      state.GAMEOVER:
+        rgb = 9x{b1};
+        
+        tribits = 16x{b1};
+        
+        if(cyclestate == 0){
+          state.d = state.IDLE;
+          }       
+      
+    } // end of state fsm block
+  }
+}

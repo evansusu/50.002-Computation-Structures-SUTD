@@ -1,0 +1,25 @@
+module scoretoseg (
+    input score[16],
+    output values[4][4]
+  ) {
+  
+  sig a[16];
+  sig arem[16];
+  sig b[16];
+  sig brem[16];
+  sig c[16];
+  sig d[16];
+  
+  always {
+    a = score / 1000;
+    arem = score - (1000*a);
+    
+    b = arem / 100;
+    brem = arem - (100*b);
+    
+    c = brem / 10;
+    d = brem - (10 * c);
+    
+    values = {a[3:0], b[3:0], c[3:0], d[3:0]};
+  }
+}

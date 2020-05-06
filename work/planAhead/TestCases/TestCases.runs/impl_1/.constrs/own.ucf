@@ -1,0 +1,129 @@
+NET "button" LOC = P120;
+NET "button" IOSTANDARD = LVTTL;
+NET "button" PULLDOWN;
+
+NET "rgb[0]" LOC = P33;
+NET "rgb[0]" IOSTANDARD = LVTTL;
+NET "rgb[1]" LOC = P30;
+NET "rgb[1]" IOSTANDARD = LVTTL;
+NET "rgb[2]" LOC = P27;
+NET "rgb[2]" IOSTANDARD = LVTTL;
+NET "rgb[3]" LOC = P137;
+NET "rgb[3]" IOSTANDARD = LVTTL;
+NET "rgb[4]" LOC = P140;
+NET "rgb[4]" IOSTANDARD = LVTTL;
+NET "rgb[5]" LOC = P34;
+NET "rgb[5]" IOSTANDARD = LVTTL;
+NET "rgb[6]" LOC = P139;
+NET "rgb[6]" IOSTANDARD = LVTTL;
+NET "rgb[7]" LOC = P142;
+NET "rgb[7]" IOSTANDARD = LVTTL;
+NET "rgb[8]" LOC = P35;
+NET "rgb[8]" IOSTANDARD = LVTTL;
+
+
+
+NET "io_led[0]" LOC = P97;
+NET "io_led[0]" IOSTANDARD = LVTTL;
+NET "io_led[1]" LOC = P98;
+NET "io_led[1]" IOSTANDARD = LVTTL;
+NET "io_led[2]" LOC = P94;
+NET "io_led[2]" IOSTANDARD = LVTTL;
+NET "io_led[3]" LOC = P95;
+NET "io_led[3]" IOSTANDARD = LVTTL;
+NET "io_led[4]" LOC = P92;
+NET "io_led[4]" IOSTANDARD = LVTTL;
+NET "io_led[5]" LOC = P93;
+NET "io_led[5]" IOSTANDARD = LVTTL;
+NET "io_led[6]" LOC = P87;
+NET "io_led[6]" IOSTANDARD = LVTTL;
+NET "io_led[7]" LOC = P88;
+NET "io_led[7]" IOSTANDARD = LVTTL;
+
+NET "io_led[8]" LOC = P84;
+NET "io_led[8]" IOSTANDARD = LVTTL;
+NET "io_led[9]" LOC = P85;
+NET "io_led[9]" IOSTANDARD = LVTTL;
+NET "io_led[10]" LOC = P82;
+NET "io_led[10]" IOSTANDARD = LVTTL;
+NET "io_led[11]" LOC = P83;
+NET "io_led[11]" IOSTANDARD = LVTTL;
+NET "io_led[12]" LOC = P80;
+NET "io_led[12]" IOSTANDARD = LVTTL;
+NET "io_led[13]" LOC = P81;
+NET "io_led[13]" IOSTANDARD = LVTTL;
+NET "io_led[14]" LOC = P11;
+NET "io_led[14]" IOSTANDARD = LVTTL;
+NET "io_led[15]" LOC = P14;
+NET "io_led[15]" IOSTANDARD = LVTTL;
+
+NET "io_led[16]" LOC = P15;
+NET "io_led[16]" IOSTANDARD = LVTTL;
+NET "io_led[17]" LOC = P16;
+NET "io_led[17]" IOSTANDARD = LVTTL;
+NET "io_led[18]" LOC = P17;
+NET "io_led[18]" IOSTANDARD = LVTTL;
+NET "io_led[19]" LOC = P21;
+NET "io_led[19]" IOSTANDARD = LVTTL;
+NET "io_led[20]" LOC = P22;
+NET "io_led[20]" IOSTANDARD = LVTTL;
+NET "io_led[21]" LOC = P23;
+NET "io_led[21]" IOSTANDARD = LVTTL;
+NET "io_led[22]" LOC = P24;
+NET "io_led[22]" IOSTANDARD = LVTTL;
+NET "io_led[23]" LOC = P26;
+NET "io_led[23]" IOSTANDARD = LVTTL;
+
+NET "ioseg[0]" LOC = P5;
+NET "ioseg[0]" IOSTANDARD = LVTTL;
+NET "ioseg[1]" LOC = P8;
+NET "ioseg[1]" IOSTANDARD = LVTTL;
+NET "ioseg[2]" LOC = P144;
+NET "ioseg[2]" IOSTANDARD = LVTTL;
+NET "ioseg[3]" LOC = P143;
+NET "ioseg[3]" IOSTANDARD = LVTTL;
+NET "ioseg[4]" LOC = P2;
+NET "ioseg[4]" IOSTANDARD = LVTTL;
+NET "ioseg[5]" LOC = P6;
+NET "ioseg[5]" IOSTANDARD = LVTTL;
+NET "ioseg[6]" LOC = P1;
+NET "ioseg[6]" IOSTANDARD = LVTTL;
+
+NET "iosel[0]" LOC = P9;
+NET "iosel[0]" IOSTANDARD = LVTTL;
+NET "iosel[1]" LOC = P10;
+NET "iosel[1]" IOSTANDARD = LVTTL;
+NET "iosel[2]" LOC = P7;
+NET "iosel[2]" IOSTANDARD = LVTTL;
+NET "iosel[3]" LOC = P12;
+NET "iosel[3]" IOSTANDARD = LVTTL;
+
+# PULLDOWN is needed to prevent floating inputs
+NET "iohiseg[0]" LOC = P112;
+NET "iohiseg[0]" IOSTANDARD = LVTTL;
+NET "iohiseg[1]" LOC = P104;
+NET "iohiseg[1]" IOSTANDARD = LVTTL;
+NET "iohiseg[2]" LOC = P105;
+NET "iohiseg[2]" IOSTANDARD = LVTTL;
+NET "iohiseg[3]" LOC = P111;
+NET "iohiseg[3]" IOSTANDARD = LVTTL;
+
+NET "iohiseg[4]" LOC = P74;
+NET "iohiseg[4]" IOSTANDARD = LVTTL;
+NET "iohiseg[5]" LOC = P75;
+NET "iohiseg[5]" IOSTANDARD = LVTTL;
+NET "iohiseg[6]" LOC = P78;
+NET "iohiseg[6]" IOSTANDARD = LVTTL;
+
+NET "iohisel[0]" LOC = P79;
+NET "iohisel[0]" IOSTANDARD = LVTTL;
+NET "iohisel[1]" LOC = P99;
+NET "iohisel[1]" IOSTANDARD = LVTTL;
+NET "iohisel[2]" LOC = P100;
+NET "iohisel[2]" IOSTANDARD = LVTTL;
+NET "iohisel[3]" LOC = P101;
+NET "iohisel[3]" IOSTANDARD = LVTTL;
+
+
+
+
